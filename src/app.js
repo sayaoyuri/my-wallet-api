@@ -6,6 +6,7 @@ import Joi from 'joi';
 import { stripHtml } from 'string-strip-html';
 import dayjs from 'dayjs';
 import bcrypt from 'bcrypt';
+import { v4 as uuidToken} from 'uuid';
 dotenv.config();
 
 const app = express();
@@ -48,6 +49,40 @@ app.post('/cadastro', async (req, res) => {
   } catch(e) {
     console.log(e.message);
     return res.status(500).send('Ocorreu um erro ao processar a solicitação.\nTente novamente mais tarde!')
+  }
+});
+
+app.post('/login', async (req, res) => {
+  const schema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().min(3).required()
+  });
+
+  const requestData = {};
+  try {
+    requestData.email = stripHtml(req.body.email).result.trim();
+    requestData.password = stripHtml(req.body.password).result.trim();
+  } catch (e) {
+    return res.status(422).send('Todos os campos são obrigatórios!');
+  }
+
+  const { error } = schema.validate(requestData, { abortEarly: false });
+  if(error) return res.status(422).send(error.details.map(e => e.details));
+
+  try {
+    const dbUser = await db.collection('users').findOne({ email: requestData.email })
+    if(!dbUser) return res.status(404).send('E-mail não cadastrado!');
+
+    const auth = bcrypt.compareSync(requestData.password, dbUser.password);
+    if(!auth) return res.status(401).send('Senha incorreta!');
+
+    dbUser.token = uuidToken();
+    delete dbUser.password;
+
+    const newSession = await db.collection('sessions').insertOne({ name : dbUser.name, email: dbUser.email, userId: dbUser._id, token: dbUser.token});
+    if(newSession.acknowledged) return res.send(dbUser.token);
+  } catch (e) {
+    return res.status(500).send(e.message)
   }
 });
 
