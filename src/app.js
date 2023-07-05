@@ -80,7 +80,7 @@ app.post('/login', async (req, res) => {
     delete dbUser.password;
 
     const newSession = await db.collection('sessions').insertOne({ name : dbUser.name, email: dbUser.email, userId: dbUser._id, token: dbUser.token});
-    if(newSession.acknowledged) return res.send(dbUser.token);
+    if(newSession.acknowledged) return res.send({name: dbUser.name, token: dbUser.token });
   } catch (e) {
     return res.status(500).send(e.message)
   }
