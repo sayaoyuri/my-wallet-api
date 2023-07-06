@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { request } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { MongoClient, ObjectId } from 'mongodb';
@@ -67,7 +67,7 @@ app.post('/login', async (req, res) => {
   }
 
   const { error } = schema.validate(requestData, { abortEarly: false });
-  if(error) return res.status(422).send(error.details.map(e => e.details));
+  if(error) return res.status(422).send(error.details.map(e => e.message));
 
   try {
     const dbUser = await db.collection('users').findOne({ email: requestData.email })
@@ -83,6 +83,46 @@ app.post('/login', async (req, res) => {
     if(newSession.acknowledged) return res.send({name: dbUser.name, token: dbUser.token });
   } catch (e) {
     return res.status(500).send(e.message)
+  }
+});
+
+app.post('/nova-transacao/:tipo', async (req, res) => {
+  const schema = Joi.object({
+    tipo: Joi.string().allow('entrada', 'saida').only().required(),
+    token: Joi.string().min(36).max(36).required(),
+    description: Joi.string().min(4).required(),
+    amount: Joi.number().min(0.01).required()
+  });
+
+  if(!req.headers.token) return res.status(401).send('Você não está logado!\nFaça login novamente!')
+
+  const requestData = {};
+  try {
+    requestData.token = stripHtml(req.headers.token).result.trim();
+    requestData.tipo = stripHtml(req.params.tipo).result.trim();
+    requestData.description = stripHtml(req.body.description).result.trim();
+    requestData.amount = req.body.amount;
+  } catch (e) {
+    console.log(e.message);
+    return res.status(422).send('Todos os campos são obrigatórios!');
+  }
+
+  const { error } = schema.validate( requestData, { abortEarly: false } );
+  if(error) return res.status(422).send(error.details.map(e => e.message));
+
+  try {
+    const activeUser = await db.collection('sessions').findOne({ token: requestData.token });
+    if(!activeUser) return res.status(401).send('Token inválido!\nFaça login novamente!')
+
+    delete requestData.token;
+    requestData.userId = activeUser.userId;
+    requestData.amount = Number(requestData.amount).toFixed(2);
+
+    const newTransaction = await db.collection('transactions').insertOne(requestData);
+    console.log(newTransaction);
+    if(newTransaction.acknowledged) res.sendStatus(201);
+  } catch (e) {
+    return res.status(500).send(e.message);
   }
 });
 
