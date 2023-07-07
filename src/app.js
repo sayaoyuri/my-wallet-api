@@ -88,7 +88,7 @@ app.post('/login', async (req, res) => {
 
 app.post('/nova-transacao/:tipo', async (req, res) => {
   const schema = Joi.object({
-    tipo: Joi.string().allow('entrada', 'saida').only().required(),
+    type: Joi.string().allow('entrada', 'saida').only().required(),
     token: Joi.string().min(36).max(36).required(),
     description: Joi.string().min(4).required(),
     amount: Joi.number().min(0.01).required()
@@ -99,7 +99,7 @@ app.post('/nova-transacao/:tipo', async (req, res) => {
   const requestData = {};
   try {
     requestData.token = stripHtml(req.headers.token).result.trim();
-    requestData.tipo = stripHtml(req.params.tipo).result.trim();
+    requestData.type = stripHtml(req.params.tipo).result.trim();
     requestData.description = stripHtml(req.body.description).result.trim();
     requestData.amount = req.body.amount;
   } catch (e) {
@@ -115,8 +115,11 @@ app.post('/nova-transacao/:tipo', async (req, res) => {
     if(!activeUser) return res.status(401).send('Token inválido!\nFaça login novamente!')
 
     delete requestData.token;
+
     requestData.userId = activeUser.userId;
+    requestData.type = requestData.type === 'entrada' ? 'income' : 'expense';
     requestData.amount = Number(requestData.amount).toFixed(2);
+    requestData.date = dayjs().format('DD/MM');
 
     const newTransaction = await db.collection('transactions').insertOne(requestData);
     console.log(newTransaction);
