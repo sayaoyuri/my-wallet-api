@@ -137,7 +137,7 @@ app.get('/transactions', async (req, res) => {
     const user = await db.collection('sessions').findOne({ token: token });
     if(!user) return res.sendStatus(401);
 
-    const transactions = await db.collection('transactions').find({ userId: new ObjectId(user.userId) }).sort({ date: -1 }).toArray();
+    const transactions = await db.collection('transactions').find({ userId: new ObjectId(user.userId) }).sort({ _id: -1 }).toArray();
     return res.send(transactions);
   } catch (e) {
     return res.status(500).send(e.message)
