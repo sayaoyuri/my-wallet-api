@@ -129,4 +129,19 @@ app.post('/nova-transacao/:tipo', async (req, res) => {
   }
 });
 
+app.get('/transactions', async (req, res) => {
+  const { token } = req.headers;
+  if(!token) return res.sendStatus(401);
+
+  try {
+    const user = await db.collection('sessions').findOne({ token: token });
+    if(!user) return res.sendStatus(401);
+
+    const transactions = await db.collection('transactions').find({ userId: new ObjectId(user.userId) }).sort({ date: -1 }).toArray();
+    return res.send(transactions);
+  } catch (e) {
+    return res.status(500).send(e.message)
+  }
+})
+
 app.listen(5000, () => console.log('Server is running on http://localhost:5000/'));
