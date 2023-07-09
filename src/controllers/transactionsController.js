@@ -38,3 +38,22 @@ export async function getAllTransactions (req, res) {
     return res.status(500).send(e.message);
   }
 };
+
+export async function deleteTransactionById (req, res) {
+  const { token } = req.headers;
+  if(!token) return res.sendStatus(401);
+
+  const { id } = req.params;
+
+  try {
+    const user = await db.collection('sessions').findOne({ token: token });
+    if(!user) return res.status(401).send('Token inválido!\nFaça login novamente!');
+
+    const transaction = await db.collection('transactions').deleteOne({ _id: new ObjectId(id), userId: new ObjectId(user.userId) });
+    if(transaction.deletedCount === 0) return res.sendStatus(404);
+
+    res.sendStatus(202);
+  } catch (e) {
+    return res.status(500).send(e.message);
+  };
+};
